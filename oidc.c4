@@ -67,7 +67,7 @@ views {
         302 Redirect
         Location: https://uas.alice.example/authorize
           ?response_type=code
-          &scope=openid webid offline_access
+          &scope=openid offline_access
           &client_id=https://decentphotos.example/id
           &redirect_uri=https://decentphotos.example/callback
       ```
@@ -82,7 +82,7 @@ views {
       ```
       '''
     }
-    ClientID -> UAS 'ClienID Document' {
+    ClientID -> UAS 'ClientID Document' {
       notes'''
       [LWS Authentication Suite: OpenID Connect - Security Considerations](https://github.com/w3c/lws-protocol/pull/43/files#diff-e71b10a2096fa8cb25a080740269fdb3c3d91ac55fcdfb450be98e1a78122621R190-R192)
 
@@ -90,12 +90,11 @@ views {
       
       [OAuth Client ID Metadata Document](https://www.ietf.org/archive/id/draft-parecki-oauth-client-id-metadata-document-03.html#name-client-identifier)
       ```http
-        HTTP/2.0 200 OK
-        Content-Type: application/ld+json
+        HTTP/2 200 OK
+        Content-Type: application/json
       ```
       ```json{4}
         {
-          "@context": "https://www.w3.org/ns/solid/oidc-context.jsonld",
           "client_id": "https://decentphotos.example/id",
           "client_name": "DecentPhotos",
           "redirect_uris": [ "https://decentphotos.example/callback" ],
@@ -103,7 +102,7 @@ views {
           "client_uri": "https://decentphotos.example",
           "logo_uri": "https://decentphotos.example/logo.png",
           "tos_uri": "https://decentphotos.example/tos.html",
-          "scope": "openid webid offline_access",
+          "scope": "openid offline_access",
           "grant_types": [ "refresh_token", "authorization_code" ],
           "response_types": [ "code" ],
           "default_max_age": 3600,
@@ -121,23 +120,19 @@ views {
             "alg": "ES256",
             "typ": "JWT",
             "kid": "Xu68Q0ZfwDiRfWOb2UE8N77GoEQQ7q58_3gl1wsKENs"
-        }.
+        }
+        .
         {
           "sub": "https://id.alice.example",
           "aud": [ "https://uas.alice.example", "https://decentphotos.example/id"],
           "azp": "https://decentphotos.example/id"
-          "webid": "https://id.alice.example",
           "iss": "https://uas.alice.example",
           "jti": "844a095c-9cdb-47e5-9510-1dba987c0a5f",
           "iat": 1603370641,
           "exp": 1603371241,
         }
-        {
-            "alg": "ES256",
-            "typ": "JWT",
-            "kid": "Xu68Q0ZfwDiRfWOb2UE8N77GoEQQ7q58_3gl1wsKENs"
-        }
-        .signature
+        .
+        signature
       ```
       '''
     }
@@ -171,8 +166,7 @@ views {
 
         grant_type=urn:ietf:params:oauth:grant-type:token-exchange
         &requested_token_type=urn:ietf:params:oauth:token-type:id-jag
-        &audience=https://ras.bob.example
-        &resource=https://pod.bob.example
+        &resource=https://ras.bob.example
         &subject_token=eyJraWQiOiJzMTZ0cVNtODhwREo4VGZCXzdrSEtQ...
         &subject_token_type=urn:ietf:params:oauth:token-type:id_token
         &client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer
@@ -208,7 +202,6 @@ views {
           "client_id": "https://decentphotos.example/id",
           "exp": 1311281970,
           "iat": 1311280970,
-          "resource": "https://pod.bob.example",
           "auth_time": 1311280970,
           "amr": [
             "mfa",
@@ -254,7 +247,7 @@ views {
     WebID -> RAS 'WebID Document' {
       notes'''
       ```http
-        HTTP/2.0 303 See Other
+        HTTP/2 303 See Other
         Location: https://id.example/alice
       ```
       ```http
@@ -263,7 +256,7 @@ views {
       ```
       🛡️ `solid:oidcIssuer` is the same as `iss` in ID-JAG
       ```http
-        HTTP/2.0 200 OK
+        HTTP/2 200 OK
         Content-Type: text/turtle
       ```
       ```ttl{14}
