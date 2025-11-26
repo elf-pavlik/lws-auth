@@ -1,0 +1,12 @@
+{
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "dev": "likec4 start",
+    "build": "likec4 build"
+  },
+  "dependencies": {
+    "likec4": "^1.45.0"
+  }
+}
