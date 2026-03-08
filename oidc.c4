@@ -23,12 +23,12 @@ model {
     style {
       color: green
     }
-    role WebID 'WebID' 'id.alice.example' {
+    role CID 'CID' 'id.alice.example' {
       style {
         color: gray
       }
     }
-    role UAS 'User Authorization Server' 'uas.alice.example' {
+    role UAS 'User Authorization Server / IdP' 'uas.alice.example' {
       style {
         color: green
       }
@@ -55,14 +55,15 @@ views {
   dynamic view oidc {
     title: 'OIDC'
     include EU, App, RO
-    include WebID, UAS, ClientID, Client, RAS, RS
+    include CID, UAS, ClientID, Client, RAS, RS
 
     Client -> UAS 'User SSO' {
       notes'''
-      Could involve [Web Authentication API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Authentication_API)
+      [Identity Assertion JWT Authorization Grant - 4.2. User Authentication](https://www.ietf.org/archive/id/draft-ietf-oauth-identity-assertion-authz-grant-01.html#name-user-authentication)
+      >[!NOTE]
+      > Could involve [Web Authentication API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Authentication_API)
       and [Federated Credential Management API](https://www.w3.org/TR/fedcm/)
 
-      [Identity Assertion JWT Authorization Grant - 4.2. User Authentication](https://www.ietf.org/archive/id/draft-ietf-oauth-identity-assertion-authz-grant-01.html#name-user-authentication)
       ```
         302 Redirect
         Location: https://uas.alice.example/authorize
@@ -84,11 +85,13 @@ views {
     }
     ClientID -> UAS 'ClientID Document' {
       notes'''
-      [LWS Authentication Suite: OpenID Connect - Security Considerations](https://github.com/w3c/lws-protocol/pull/43/files#diff-e71b10a2096fa8cb25a080740269fdb3c3d91ac55fcdfb450be98e1a78122621R190-R192)
+      [LWS Authentication Suite: OpenID Connect - Security Considerations](https://w3c.github.io/lws-protocol/lws10-authn-openid/#security-considerations)
+      >[!IMPORTANT]
+      >check if `redirect_uris` includes `redirect_uri`
 
-      🛡️ check if `redirect_uris` includes `redirect_uri`
-      
-      [OAuth Client ID Metadata Document](https://www.ietf.org/archive/id/draft-parecki-oauth-client-id-metadata-document-03.html#name-client-identifier)
+      >[!NOTE]
+      > Could be [OAuth Client ID Metadata Document](https://www.ietf.org/archive/id/draft-ietf-oauth-client-id-metadata-document-01.html)
+
       ```http
         HTTP/2 200 OK
         Content-Type: application/json
@@ -98,23 +101,49 @@ views {
           "client_id": "https://decentphotos.example/id",
           "client_name": "DecentPhotos",
           "redirect_uris": [ "https://decentphotos.example/callback" ],
-          "post_logout_redirect_uris": [ "https://decentphotos.example/logout" ],
-          "client_uri": "https://decentphotos.example",
-          "logo_uri": "https://decentphotos.example/logo.png",
-          "tos_uri": "https://decentphotos.example/tos.html",
           "scope": "openid offline_access",
           "grant_types": [ "refresh_token", "authorization_code" ],
           "response_types": [ "code" ],
-          "default_max_age": 3600,
-          "require_auth_time": true
         }
+      ```
+      >[!TIP]
+      >if confidential client [The OAuth 2.0 Authorization Framework - 2.1.  Client Types](https://www.rfc-editor.org/rfc/rfc6749.html#section-2.1)
+      ```json
+      {
+        "token_endpoint_auth_method": "private_key_jwt",
+        "jwks_uri": "https://decentphotos.example/jwks"
+      }
+      ```
+      >[!TIP]
+      > Consider CID as in [LWS Authentication Suite: Self-signed Identity using Controlled Identifiers](https://w3c.github.io/lws-protocol/lws10-authn-ssi-cid/#validation)
+      ```json
+      {
+          "@context": [
+              "https://www.w3.org/ns/cid/v1" ],
+          "id": "https://decentphotos.example/id",
+          "authentication": [{
+              "id": "https://decentphotos.example/id#c1f52577",
+              "type": "JsonWebKey",
+              "controller": "https://decentphotos.example/id",
+              "publicKeyJwk": {
+                  "kid": "c1f52577",
+                  "kty": "EC",
+                  "crv": "P-256",
+                  "alg": "ES256",
+                  "x": "f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
+                  "y": "x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0"
+              }
+          }]
+      }
       ```
       '''
     }
     UAS -> Client 'ID Token & Refresh token' {
       notes'''
       ID Token
-      🛡️ `aud` includes client and OP
+
+      >[!IMPORTANT]
+      >`aud` includes client and OP
       ```{8}
         {
             "alg": "ES256",
@@ -138,7 +167,7 @@ views {
     }
     Client -> RS 'Resource Request' {
       notes'''
-      [5.2.1 Authorization Server Discovery](https://pr-preview.s3.amazonaws.com/w3c/lws-protocol/pull/45.html#authorization-server-discovery)
+      [5.2.1 Authorization Server Discovery](https://w3c.github.io/lws-protocol/lws10-core/#authorization-server-discovery)
       ```http
       GET /garfield.png HTTP/1.1
       Host: pod.bob.example
@@ -147,7 +176,7 @@ views {
     }
     RS -> Client '401 WWW-Authenticate' {
       notes'''
-      [5.2.1 Authorization Server Discovery](https://pr-preview.s3.amazonaws.com/w3c/lws-protocol/pull/45.html#authorization-server-discovery)
+      [5.2.1 Authorization Server Discovery](https://w3c.github.io/lws-protocol/lws10-core/#authorization-server-discovery)
       ```http
         HTTP/2 401 Unauthorized
         WWW-Authenticate: Bearer
@@ -159,6 +188,8 @@ views {
     Client -> UAS 'Token exchange' {
       notes'''
       [Identity Assertion JWT Authorization Grant - 4.3. Token Exchange](https://www.ietf.org/archive/id/draft-ietf-oauth-identity-assertion-authz-grant-01.html#name-token-exchange)
+      >[!NOTE]
+      >`resource` param will be used to set `aud` on the ID-JAG
       ```http
         POST /token HTTP/1.1
         Host: uas.alice.example
@@ -188,7 +219,9 @@ views {
           "expires_in": 300
         }
       ```
-      🛡️ `aud` same as `as_uri` from `WWW-Authenticate`
+ 
+      >[!IMPORTANT]
+      >`aud` same as `as_uri` from `WWW-Authenticate`
       ```
         {
           "typ": "oauth-id-jag+jwt"
@@ -217,7 +250,7 @@ views {
       }
     Client -> RAS 'Present ID-JAG' {
       notes'''
-      [LWS - 5.2.3 Token Exchange](https://pr-preview.s3.amazonaws.com/w3c/lws-protocol/pull/45.html#authorization-token-exchange)
+      [LWS - 5.2.3 Token Exchange](https://w3c.github.io/lws-protocol/lws10-core/#authorization-token-exchange)
       ```http
         POST /token HTTP/1.1
         Host: ras.bob.example
@@ -228,15 +261,14 @@ views {
         &subject_token=eyJ0eXAiOiJhcytqd3QiLCJhbGciO...fiK51VwhsxJ-siBMR-YFiA
         &subject_token_type=urn:ietf:params:oauth:token-type:id-jag
       ```
+      >[!TIP]
+      >[Identity Assertion JWT Authorization Grant - 4.4. Access Token Request](https://www.ietf.org/archive/id/draft-ietf-oauth-identity-assertion-authz-grant-01.html#name-access-token-request) uses `grant-type:jwt-bearer`
 
-      [Identity Assertion JWT Authorization Grant - 4.4. Access Token Request](https://www.ietf.org/archive/id/draft-ietf-oauth-identity-assertion-authz-grant-01.html#name-access-token-request)
-
-      it uses `grant-type:jwt-bearer`
-
-      TODO: client authentication
+      >[!NOTE]
+      >TODO: client authentication
       '''
       }
-    RAS -> WebID 'Fetch WebID' {
+    RAS -> CID 'Fetch CID' {
       notes'''
       ```http
       GET / HTTP/1.1
@@ -244,35 +276,36 @@ views {
       ```
       '''
     }
-    WebID -> RAS 'WebID Document' {
+    CID -> RAS 'CID Document' {
       notes'''
-      ```http
-        HTTP/2 303 See Other
-        Location: https://id.example/alice
-      ```
-      ```http
-        GET /alice HTTP/1.1
-        Host: id.example
-      ```
-      🛡️ `solid:oidcIssuer` is the same as `iss` in ID-JAG
+      [LWS OIDC - 5  Authentication Credential Validation](https://w3c.github.io/lws-protocol/lws10-authn-openid/#validation)
+      >[!IMPORTANT]
+      >`https://www.w3.org/ns/lws#OpenIdProvider` MUST be the same as `iss` in ID-JAG
       ```http
         HTTP/2 200 OK
-        Content-Type: text/turtle
+        Content-Type: application/cid
       ```
-      ```ttl{14}
-        PREFIX solid: <http://www.w3.org/ns/solid/terms#>
-        PREFIX foaf: <http://xmlns.com/foaf/0.1/>
-        PREFIX schema: <http://schema.org/>
-
-        <https://id.alice.example>
-          a foaf:Person, a schema:Person ;
-          foaf:name "Alice" ;
-          solid:oidcIssuer <https://uas.alice.example> ;
+      [Controlled Identifiers v1.0](https://www.w3.org/TR/cid/)
+      ```json
+      {
+        "@context": [
+          "https://www.w3.org/ns/cid/v1"
+        ],
+        "id": "https://id.alice.example",
+        "service": [{
+          "type": "https://www.w3.org/ns/lws#OpenIdProvider",
+          "serviceEndpoint": "https://uas.alice.example"
+        }]
+      }
       ```
       '''
     }
     RAS -> UAS 'Fetch server configuration' {
       notes'''
+      Discover server JWK
+      >[!TIP]
+      >OIDC uses `/.well-know/openid-configuration`
+
       ```http
         GET /.well-known/oauth-authorization-server HTTP/1.1
         Host: uas.alice.example
@@ -281,8 +314,24 @@ views {
     }
     UAS -> RAS 'Server metadata' {
       notes'''
-      🛡️ validate token signature using keys in `jwks_uri`
+      >[!IMPORTANT]
+      >validate token signature using keys in `jwks_uri`
       ```json
+      {
+        "issuer":
+          "https://uas.alice.example",
+        "jwks_uri":
+          "https://uas.alice.example/jwks.json",
+
+        "authorization_endpoint":
+          "https://uas.alice.example/authorize",
+        "token_endpoint":
+          "https://uas.alice.example/token",
+        "token_endpoint_auth_methods_supported":
+          ["private_key_jwt"],
+        "token_endpoint_auth_signing_alg_values_supported":
+          ["ES256"],
+      }
       ```
       '''
     }
@@ -334,7 +383,7 @@ views {
     }
     RS -> Client 'Representation' {
       notes'''
-      [LWS - 5.2.4 Token Validation by a Storage Server](https://pr-preview.s3.amazonaws.com/w3c/lws-protocol/pull/45.html#authorization-token-validation)
+      [LWS - 5.2.4 Token Validation by a Storage Server](https://w3c.github.io/lws-protocol/lws10-core/#authorization-token-validation)
       ```http
       HTTP/2 200 OK
       Content-Type: image/png
