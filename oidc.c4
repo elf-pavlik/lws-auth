@@ -33,6 +33,11 @@ model {
         color: green
       }
     }
+    role UReg 'User Registry' 'reg.alice.example' {
+      style {
+        color: sky
+      }
+    }
   }
   security RO 'Resource Owner (self and each social graph peer)' 'bob.example' {
     style {
@@ -48,6 +53,16 @@ model {
         color: blue
       }
     }
+    role UAS 'User Authorization Server / IdP' 'uas.bob.example' {
+      style {
+        color: green
+      }
+    }
+    role UReg 'User Registry' 'reg.bob.example' {
+      style {
+        color: sky
+      }
+    }
   }
 }
 
@@ -55,9 +70,9 @@ views {
   dynamic view oidc {
     title: 'OIDC'
     include EU, App, RO
-    include CID, UAS, ClientID, Client, RAS, RS
+    include CID, EU.UAS, ClientID, Client, RAS, RS
 
-    Client -> UAS 'User SSO' {
+    Client -> EU.UAS 'User SSO' {
       notes'''
       [Identity Assertion JWT Authorization Grant - 4.2. User Authentication](https://www.ietf.org/archive/id/draft-ietf-oauth-identity-assertion-authz-grant-01.html#name-user-authentication)
       >[!NOTE]
@@ -74,7 +89,7 @@ views {
       ```
       '''
     }
-    UAS -> ClientID 'Fetch client metadata' {
+    EU.UAS -> ClientID 'Fetch client metadata' {
       notes'''
       Fetch URL from `client_id` query parameter
       ```http
@@ -83,7 +98,7 @@ views {
       ```
       '''
     }
-    ClientID -> UAS 'ClientID Document' {
+    ClientID -> EU.UAS 'ClientID Document' {
       notes'''
       [LWS Authentication Suite: OpenID Connect - Security Considerations](https://w3c.github.io/lws-protocol/lws10-authn-openid/#security-considerations)
       >[!IMPORTANT]
@@ -138,7 +153,7 @@ views {
       ```
       '''
     }
-    UAS -> Client 'ID Token & Refresh token' {
+    EU.UAS -> Client 'ID Token & Refresh token' {
       notes'''
       ID Token
 
@@ -185,7 +200,7 @@ views {
       ```
       '''
     }
-    Client -> UAS 'Token exchange' {
+    Client -> EU.UAS 'Token exchange' {
       notes'''
       [Identity Assertion JWT Authorization Grant - 4.3. Token Exchange](https://www.ietf.org/archive/id/draft-ietf-oauth-identity-assertion-authz-grant-01.html#name-token-exchange)
       >[!NOTE]
@@ -205,7 +220,7 @@ views {
       ```
       '''
     }
-    UAS -> Client 'ID-JAG' {
+    EU.UAS -> Client 'ID-JAG' {
       notes'''
       ```http
         HTTP/1.1 200 OK
@@ -300,7 +315,7 @@ views {
       ```
       '''
     }
-    RAS -> UAS 'Fetch server configuration' {
+    RAS -> EU.UAS 'Fetch server configuration' {
       notes'''
       Discover server JWK
       >[!TIP]
@@ -312,7 +327,7 @@ views {
       ```
       '''
     }
-    UAS -> RAS 'Server metadata' {
+    EU.UAS -> RAS 'Server metadata' {
       notes'''
       >[!IMPORTANT]
       >validate token signature using keys in `jwks_uri`
@@ -392,4 +407,100 @@ views {
       '''
     }
   }
+
+  dynamic view grants {
+    title: 'Grants'
+    include EU, App, RO
+    include EU.CID, EU.UReg, EU.UAS, ClientID, Client, RO.UAS, RO.UReg, RAS, RS
+
+    Client -> EU.UAS 'Redirect' {
+      notes'''
+      ```
+        302 Redirect
+        Location: https://uas.alice.example/authorize
+          ?response_type=code
+          &scope=openid offline_access
+          &client_id=https://decentphotos.example/id
+          &redirect_uri=https://decentphotos.example/callback
+      ```
+      '''
+    }
+    EU.UAS -> ClientID 'Fetch client metadata' {
+      notes'''
+      Fetch URL from `client_id` query parameter
+      ```http
+      GET /id HTTP/1.1
+      Host: decentphotos.example
+      ```
+      '''
+    }
+    ClientID -> EU.UAS 'ClientID Document' {
+      notes'''
+      ```http
+        HTTP/2 200 OK
+        Content-Type: application/ld+json
+      ```
+      ```json{4}
+        {
+          "@context": "...",
+          "client_id": "https://decentphotos.example/id",
+          "client_name": "DecentPhotos",
+          "interop:hasAccessNeedGroup": "https://decentphotos.example/needs",
+          "redirect_uris": [ "https://decentphotos.example/callback" ],
+          "scope": "openid offline_access",
+          "grant_types": [ "refresh_token", "authorization_code" ],
+          "response_types": [ "code" ],
+        }
+      ```
+      '''
+    }
+    EU.UAS -> EU.UReg 'Fetch relevant indexes and grants' {
+      notes'''
+        Indexes from all owned pods and grants from all peers in the social graph.
+        Match on shapes/types from access needs.
+      '''
+    }
+    EU.UReg -> EU.UAS 'authorization data' {
+      notes'''
+        Video below shows an example of AuthZ screen with multiple pods and data from peers in a social graph.
+        [![SAI AuthZ Screen](https://img.youtube.com/vi/stMj1bzZOcQ/0.jpg)](https://www.youtube.com/watch?v=stMj1bzZOcQ)
+      '''
+    }
+    EU.UAS -> EU.UReg 'store grants' {
+      notes'''
+      '''
+    }
+    EU.UReg -> EU.UAS 'OK' {
+      notes'''
+      '''
+    }
+    EU.UAS -> RO.UAS 'request delegated grants' {
+      notes'''
+      '''
+    }
+    RO.UAS -> RO.UReg 'store grants' {
+      notes'''
+      '''
+    }
+    RO.UReg -> RO.UAS 'OK' {
+      notes'''
+      '''
+    }
+    RO.UAS -> EU.UAS 'grants ids' {
+      notes'''
+      '''
+    }
+    EU.UAS -> EU.UReg 'create/update application registration' {
+      notes'''
+      '''
+    }
+    EU.UReg -> EU.UAS 'OK' {
+      notes'''
+      '''
+    }
+    EU.UAS -> Client 'redirect back'
+    Client -> EU.UAS 'discover application registration with links to all grants'
+    EU.UAS -> Client 'application registration (entry point for discovery)'
+  }
+
 }
